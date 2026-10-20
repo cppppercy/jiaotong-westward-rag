@@ -2,6 +2,8 @@
 
 一个面向课程实验和作品集展示的中文知识库问答系统。系统先从本人资料中检索证据，再调用 OpenAI 兼容模型回答；证据不足时明确回复“文档中没有相关信息”。
 
+当前实现与实机验证进度见 [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md)。
+
 ## 功能
 
 - 导入 Markdown、TXT 和文本型 PDF。
