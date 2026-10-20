@@ -17,6 +17,11 @@ class StubKnowledgeBase:
         return [SearchResult(CHUNK, self.score, 1)]
 
 
+class FailingKnowledgeBase:
+    def search(self, query: str, method: str, top_k: int):
+        raise RuntimeError("index unavailable")
+
+
 class StubGenerator:
     def __init__(self, result: GeneratedAnswer):
         self.result = result
@@ -63,4 +68,11 @@ def test_invalid_citation_fails_closed(tmp_path: Path) -> None:
     result = RAGPipeline(StubKnowledgeBase(), settings(tmp_path), generator).answer("为什么", "bm25")
     assert result.status == "refused"
     assert result.citations == []
+
+
+def test_retrieval_exception_is_recorded_as_engineering_error(tmp_path: Path) -> None:
+    result = RAGPipeline(FailingKnowledgeBase(), settings(tmp_path)).answer("为什么", "bm25")
+    assert result.status == "retrieval_error"
+    assert result.answer == "检索过程发生错误。"
+    assert "index unavailable" in (result.message or "")
 

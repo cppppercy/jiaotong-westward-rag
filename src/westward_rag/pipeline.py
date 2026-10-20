@@ -44,7 +44,17 @@ class RAGPipeline:
                 message="问题不能为空。",
             )
 
-        results = self.knowledge_base.search(question, method, self.settings.top_k)
+        try:
+            results = self.knowledge_base.search(question, method, self.settings.top_k)
+        except Exception as exc:
+            return AnswerResult(
+                question=question,
+                method=method,
+                status="retrieval_error",
+                answer="检索过程发生错误。",
+                elapsed_seconds=time.perf_counter() - started,
+                message=str(exc),
+            )
         threshold = (
             self.settings.bm25_min_score
             if method == "bm25"

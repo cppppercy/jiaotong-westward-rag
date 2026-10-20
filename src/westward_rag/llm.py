@@ -11,6 +11,7 @@ from .models import SearchResult
 
 
 REFUSAL_TEXT = "文档中没有相关信息"
+PROMPT_VERSION = "citation-json-v1"
 
 
 @dataclass(frozen=True)

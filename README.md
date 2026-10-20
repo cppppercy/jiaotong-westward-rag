@@ -1,8 +1,9 @@
 # 交通大学西迁 RAG 问答助手
 
-一个面向课程实验和作品集展示的中文知识库问答系统。系统先从本人资料中检索证据，再调用 OpenAI 兼容模型回答；证据不足时明确回复“文档中没有相关信息”。
+一个面向课程实验和作品集展示的中文知识库问答系统。系统先从西迁主题资料中检索证据，再调用 OpenAI 兼容模型回答；证据不足时明确回复“文档中没有相关信息”。
 
 当前实现与实机验证进度见 [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md)。
+本人需要完成的题目、评分、报告和录屏步骤见 [`docs/USER_TASKS.md`](docs/USER_TASKS.md)。
 
 ## 功能
 
@@ -20,8 +21,10 @@
 app.py                         Streamlit 三页界面
 src/westward_rag/              文档、检索、回答与评测核心
 data/documents/                本机正式资料（默认不提交）
-data/templates/                本人学习笔记结构模板
+data/templates/                资料核对记录模板
 data/sources.md                官方候选来源清单
+data/corpus_manifest.json      本地语料来源与字数统计（不含正文）
+data/CORPUS_READING_GUIDE.md   正式语料阅读导引
 data/index/                    本地向量索引（自动生成）
 eval/questions.template.json   20 题空白模板
 eval/results/                  原始评测结果（自动生成）
@@ -74,11 +77,11 @@ VECTOR_MIN_SIMILARITY=0.45
 
 ## 使用流程
 
-1. 阅读 `data/sources.md` 中的官方资料，亲自撰写并核对不少于 1500 字的学习笔记。
-2. 将有权使用的 `.md`、`.txt`、文本型 `.pdf` 放入 `data/documents/`，或在界面上传。
+1. 运行 `python scripts/fetch_corpus.py` 获取并清洗官方公开资料，或自行将有权使用的 `.md`、`.txt`、文本型 `.pdf` 放入 `data/documents/`。
+2. 阅读 `data/CORPUS_READING_GUIDE.md` 和原始网页，核对年份、人数、统计范围与亲历者表述；不要求另写原创学习笔记。
 3. 在“资料与索引”页查看解析结果并重建向量索引。
 4. 在“知识库问答”页切换 BM25/向量检索，检查回答、引用和 Top-3。
-5. 复制 `eval/questions.template.json` 为 `eval/questions.json`，本人完成 20 题、答案与原文依据。
+5. 复制 `eval/questions.template.json` 为 `eval/questions.json`，由本人完成 20 题、标准答案、原文依据与必要证据组。
 6. 在“评测”页校验并运行，随后对结果填写 `human_correct`、`human_hallucination` 和 `human_notes`。
 7. 重新载入人工标注后的结果查看指标，按真实数据完成报告。
 
@@ -88,6 +91,14 @@ VECTOR_MIN_SIMILARITY=0.45
 .\.venv\Scripts\python.exe scripts\run_eval.py --questions eval\questions.json
 ```
 
+运行中断后使用同一个运行编号续跑；工程错误修复后可只重跑错误项：
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_eval.py --questions eval\questions.json --run-id run-YYYYMMDD-HHMMSS --resume --retry-errors
+```
+
+每次完整运行会分别输出 `bm25_raw.json`、`vector_raw.json`、合并结果、人工评分 CSV、指标摘要和实验配置。实验配置记录语料摘要、切分参数、阈值、模型、提示词版本、时间和代码提交号。
+
 ## 评测口径
 
 - `in_document`：10 题，文档中可直接回答。
@@ -95,7 +106,7 @@ VECTOR_MIN_SIMILARITY=0.45
 - `multi_hop`：5 题，至少需要两处证据。
 - 答案正确率：仅统计已填写布尔值 `human_correct` 的题目。
 - 幻觉率：仅统计陷阱题中已填写 `human_hallucination` 的题目。
-- 检索命中率：直接题命中任一预期文档；跨片段题命中所有预期文档，或命中全部 `required_chunk_ids`。
+- 检索命中率：严格按 `required_evidence_groups` 判断。组间是“且”，必须全部覆盖；同一组中的片段编号是等价证据，命中任意一个即可。文档名相同但片段无关不算命中。
 - 首次回答平均延迟：从提交问题到完整结果返回，包含检索和模型调用时间。
 
 正式实验时，两种检索必须使用相同资料、切分参数、Top-K、回答模型、提示词和人工评分标准。

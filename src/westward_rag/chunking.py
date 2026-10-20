@@ -72,6 +72,7 @@ def chunk_sections(
                     document_name=section.document_name,
                     text=text,
                     position=position,
+                    source_url=section.source_url,
                 )
             )
     return chunks

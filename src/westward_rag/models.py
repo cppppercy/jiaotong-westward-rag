@@ -10,6 +10,7 @@ class LoadedSection:
     document_name: str
     text: str
     page: int | None = None
+    source_url: str | None = None
 
 
 @dataclass(frozen=True)
@@ -19,6 +20,7 @@ class Chunk:
     document_name: str
     text: str
     position: str
+    source_url: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -38,7 +40,13 @@ class SearchResult:
         return {"chunk": self.chunk.to_dict(), "score": self.score, "rank": self.rank}
 
 
-AnswerStatus = Literal["answered", "refused", "configuration_error", "generation_error"]
+AnswerStatus = Literal[
+    "answered",
+    "refused",
+    "configuration_error",
+    "retrieval_error",
+    "generation_error",
+]
 
 
 @dataclass

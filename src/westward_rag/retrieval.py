@@ -99,6 +99,10 @@ class VectorRetriever:
             and manifest.get("chunk_ids") == [chunk.chunk_id for chunk in self.chunks]
         )
 
+    @property
+    def cache_is_valid(self) -> bool:
+        return self._cache_is_valid()
+
     def build(self, force: bool = False) -> None:
         if not self.chunks:
             self._embeddings = np.empty((0, 0), dtype=np.float32)

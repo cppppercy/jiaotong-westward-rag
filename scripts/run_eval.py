@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 
 
@@ -12,9 +13,12 @@ sys.path.insert(0, str(ROOT / "src"))
 from westward_rag.config import Settings  # noqa: E402
 from westward_rag.evaluation import (  # noqa: E402
     calculate_metrics,
+    build_experiment_config,
+    load_result_rows,
     load_questions,
     run_evaluation,
-    save_results,
+    save_checkpoint,
+    save_result_bundle,
     validate_questions,
 )
 from westward_rag.knowledge_base import KnowledgeBase  # noqa: E402
@@ -25,6 +29,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="运行两套检索方式的 20 题评测。")
     parser.add_argument("--questions", type=Path, default=ROOT / "eval" / "questions.json")
     parser.add_argument("--output", type=Path, default=ROOT / "eval" / "results")
+    parser.add_argument("--run-id", help="固定运行编号；续跑时使用同一个编号。")
+    parser.add_argument("--resume", action="store_true", help="从该运行编号的检查点继续。")
+    parser.add_argument("--retry-errors", action="store_true", help="仅重跑检查点中的工程错误。")
     args = parser.parse_args()
 
     settings = Settings.from_env(ROOT)
@@ -41,9 +48,33 @@ def main() -> int:
     if not settings.llm_api_key:
         print("LLM_API_KEY 未配置。", file=sys.stderr)
         return 2
-    rows = run_evaluation(questions, RAGPipeline(knowledge_base, settings))
-    target = save_results(rows, args.output)
-    print(f"结果已保存：{target}")
+    run_id = args.run_id or datetime.now().strftime("run-%Y%m%d-%H%M%S")
+    run_dir = args.output / run_id
+    checkpoint = run_dir / "checkpoint.json"
+    existing_rows = load_result_rows(checkpoint) if args.resume and checkpoint.exists() else []
+
+    def persist(rows, completed, total):
+        save_checkpoint(rows, checkpoint)
+        print(f"进度：{completed}/{total}，检查点：{checkpoint}", flush=True)
+
+    rows = run_evaluation(
+        questions,
+        RAGPipeline(knowledge_base, settings),
+        existing_rows=existing_rows,
+        progress_callback=persist,
+        retry_errors=args.retry_errors,
+    )
+    artifacts = save_result_bundle(
+        rows,
+        args.output,
+        build_experiment_config(settings, knowledge_base.chunks),
+        run_id=run_id,
+    )
+    print(f"合并结果：{artifacts['combined']}")
+    print(f"BM25 原始结果：{artifacts['bm25']}")
+    print(f"向量原始结果：{artifacts['vector']}")
+    print(f"人工评分表：{artifacts['scoring']}")
+    print(f"实验配置：{artifacts['config']}")
     print(json.dumps(calculate_metrics(rows), ensure_ascii=False, indent=2))
     return 0
 

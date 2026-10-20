@@ -26,7 +26,12 @@ def test_loads_markdown_text_and_pdf(tmp_path: Path) -> None:
 
 
 def test_chunk_ids_are_stable_and_metadata_is_kept(tmp_path: Path) -> None:
-    content = "第一段。" * 40 + "\n\n" + "第二段。" * 40
+    content = (
+        "---\nsource_url: https://example.com/source\n---\n"
+        + "第一段。" * 40
+        + "\n\n"
+        + "第二段。" * 40
+    )
     (tmp_path / "note.md").write_text(content, encoding="utf-8")
     sections = load_directory(tmp_path)
 
@@ -38,4 +43,5 @@ def test_chunk_ids_are_stable_and_metadata_is_kept(tmp_path: Path) -> None:
     assert all(item.document_name == "note.md" for item in first)
     assert all(item.position.startswith("片段") for item in first)
     assert all(len(item.text) <= 140 for item in first)
+    assert all(item.source_url == "https://example.com/source" for item in first)
 

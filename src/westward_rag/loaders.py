@@ -9,6 +9,23 @@ from .models import LoadedSection
 
 SUPPORTED_SUFFIXES = {".md", ".txt", ".pdf"}
 IGNORED_DOCUMENT_NAMES = {"README.md"}
+FRONT_MATTER_KEYS = {"title", "publisher", "published_at", "source_url", "retrieved_at"}
+
+
+def _parse_front_matter(text: str) -> tuple[dict[str, str], str]:
+    normalized = text.replace("\r\n", "\n")
+    if not normalized.startswith("---\n"):
+        return {}, text
+    end = normalized.find("\n---\n", 4)
+    if end < 0:
+        return {}, text
+    metadata: dict[str, str] = {}
+    for line in normalized[4:end].splitlines():
+        key, separator, value = line.partition(":")
+        key = key.strip()
+        if separator and key in FRONT_MATTER_KEYS:
+            metadata[key] = value.strip().strip('"').strip("'")
+    return metadata, normalized[end + 5 :].strip()
 
 
 def discover_documents(directory: Path) -> list[Path]:
@@ -31,8 +48,16 @@ def load_document(path: Path, root: Path | None = None) -> list[LoadedSection]:
     source_path = path.relative_to(root).as_posix() if root and path.is_relative_to(root) else path.name
     if suffix == ".pdf":
         return _load_pdf(path, source_path)
-    text = path.read_text(encoding="utf-8-sig").strip()
-    return [LoadedSection(source_path, path.name, text)] if text else []
+    raw_text = path.read_text(encoding="utf-8-sig").strip()
+    metadata, text = _parse_front_matter(raw_text)
+    return [
+        LoadedSection(
+            source_path,
+            path.name,
+            text,
+            source_url=metadata.get("source_url") or None,
+        )
+    ] if text else []
 
 
 def _load_pdf(path: Path, source_path: str) -> list[LoadedSection]:
